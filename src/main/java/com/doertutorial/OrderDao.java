@@ -1,5 +1,8 @@
 package com.doertutorial;
 
+import com.doer.DoerLoader;
+import com.doer.DoerUnloader;
+import com.doer.Task;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -83,6 +86,16 @@ public class OrderDao {
                 return null;
             }
         }
+    }
+
+    @DoerLoader
+    public Order loadOrderForTask(Task task) throws SQLException {
+        return findOrderByTaskId(task.getId());
+    }
+
+    @DoerUnloader
+    public void saveOrder(Task task, Order order) throws SQLException {
+        updateOrder(order);
     }
 
     private Order readOrder(ResultSet rs) throws SQLException {
