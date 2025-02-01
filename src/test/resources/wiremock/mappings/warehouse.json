@@ -1,0 +1,44 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "/warehouse/reserve"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "token": "mocked-token"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/warehouse/ship"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "token": "mocked-shipping-token"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/warehouse/cancel"
+      },
+      "response": {
+        "status": 204,
+        "body": ""
+      }
+    }
+  ]
+}
