@@ -91,6 +91,16 @@ public class OrderDao {
         }
     }
 
+    @TaskDataLoader
+    public Order loadOrderForTask(TaskSnapshot task) throws SQLException {
+        return findOrderByTaskId(task.id());
+    }
+
+    @TaskDataSaver
+    public void saveOrder(TaskSnapshot task, Order order) throws SQLException {
+        updateOrder(order);
+    }
+
     static Order readOrder(ResultSet rs) throws SQLException {
         Order order = new Order();
         order.setId(rs.getObject("id", UUID.class));

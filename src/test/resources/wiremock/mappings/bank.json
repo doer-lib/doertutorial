@@ -1,0 +1,29 @@
+{
+  "mappings": [
+    {
+      "request": {
+        "method": "POST",
+        "url": "/bank/processPayment"
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "transactionId": "mocked-transactionId"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/bank/cancelPayment"
+      },
+      "response": {
+        "status": 204,
+        "body": ""
+      }
+    }
+  ]
+}
