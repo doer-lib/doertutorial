@@ -29,6 +29,8 @@ public class OrderProcessor {
     public static final String ORDER_SHIPPED = "Order shipped";
     public static final String REJECTED_NO_SHIPPING = "Rejected No Shipping";
     public static final String PAYMENT_CANCELLED = "Payment cancelled";
+    public static final String PAYMENT_CANCELLATION_FAILED = "Payment cancellation failed";
+    public static final String MANAGER_NOTIFIED = "Manager notified";
     public static final String RESERVATION_CANCELLED = "Reservation cancelled";
 
     @Inject
@@ -110,7 +112,7 @@ public class OrderProcessor {
     @AcceptStatus(REJECTED_NO_GOODS)
     @AcceptStatus(REJECTED_NO_PAYMENT)
     @AcceptStatus(REJECTED_NO_SHIPPING)
-    @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_CANCELLED)
+    @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_CANCELLATION_FAILED)
     public void cancelPayment(Task task, Order order) {
         if (order.getPaymentTransactionId() != null) {
             Check check = new Check(order.getPaymentTransactionId());
@@ -119,6 +121,14 @@ public class OrderProcessor {
         task.setStatus(PAYMENT_CANCELLED);
     }
 
+    @AcceptStatus(PAYMENT_CANCELLATION_FAILED)
+    public void notifyManager(Task task, Order order) throws Exception {
+        String extraJson = orderDao.loadLastFailureExtraJson(task.getId());
+        Log.warnf("Payment Cancellation failed. Order %s%n%s", order.getId(), extraJson);
+        task.setStatus(MANAGER_NOTIFIED);
+    }
+
+    @AcceptStatus(MANAGER_NOTIFIED)
     @AcceptStatus(PAYMENT_CANCELLED)
     @OnException(retry = "every 2m during 10m", setStatus = RESERVATION_CANCELLED)
     public void cancelReservation(Task task, Order order) {
