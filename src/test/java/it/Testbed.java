@@ -2,6 +2,7 @@ package it;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
 import io.restassured.RestAssured;
+import org.hamcrest.Matchers;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
@@ -156,5 +158,28 @@ public class Testbed {
             }
         } while (Instant.now().isBefore(deadline));
         return result;
+    }
+
+    public static void makeTaskOlder(long taskId, String pgInterval) {
+        String sql = """
+                UPDATE tasks SET created = created - ?::INTERVAL,
+                    modified = modified - ?::INTERVAL,
+                    failing_since = failing_since - ?::INTERVAL,
+                    version = version + 1
+                WHERE id = ?
+                """;
+        try (PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, pgInterval);
+            pst.setString(2, pgInterval);
+            pst.setString(3, pgInterval);
+            pst.setLong(4, taskId);
+            pst.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        RestAssured.get("/it-support/reload-queues")
+                .then()
+                .statusCode(200)
+                .body("reload", Matchers.equalTo("Ok"));
     }
 }

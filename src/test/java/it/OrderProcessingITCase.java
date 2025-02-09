@@ -80,6 +80,14 @@ public class OrderProcessingITCase {
                 .extract()
                 .header("Location");
 
+        long taskId = waitForConditionOrDeadline(
+                () -> RestAssured.get(location).then().extract().jsonPath(),
+                json -> json.getString("task.failingSince") != null && !json.getBoolean("task.inProgress"),
+                Instant.now().plusSeconds(5)
+        ).getLong("task.id");
+
+        makeTaskOlder(taskId, "10 min");
+
         waitForConditionOrDeadline(
                 () -> RestAssured.get(location).then(),
                 r -> r.extract().jsonPath().getString("task.status") == null,

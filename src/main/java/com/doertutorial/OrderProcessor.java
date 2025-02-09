@@ -56,7 +56,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(ORDER_PROCESSING_STARTED)
-    @OnException(retry = "every 5s during 5s", setStatus = NO_GOODS)
+    @OnException(retry = "every 2m during 10m", setStatus = NO_GOODS)
     public void reserveGoods(Task task, Order order) {
         Reservation reservation = warehouse.reserveGoods(order);
         order.setReservationToken(reservation.token());
@@ -70,7 +70,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(GOODS_RESERVED)
-    @OnException(retry = "every 5s during 10s", setStatus = PAYMENT_FAILED)
+    @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_FAILED)
     public void payOrder(Task task, Order order) {
         Check check = bank.processPayment(order);
         order.setPaymentTransactionId(check.transactionId());
@@ -84,7 +84,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(ORDER_PAID)
-    @OnException(retry = "every 5s during 5s", setStatus = ORDER_NOT_SHIPPED)
+    @OnException(retry = "every 2m during 10m", setStatus = ORDER_NOT_SHIPPED)
     public void shipOrder(Task task, Order order) {
         TrackId trackId = warehouse.shipTheOrder(order);
         order.setDeliveryTrackingId(trackId.token());
@@ -107,7 +107,7 @@ public class OrderProcessor {
     @AcceptStatus(REJECTED_NO_GOODS)
     @AcceptStatus(REJECTED_NO_PAYMENT)
     @AcceptStatus(REJECTED_NO_SHIPPING)
-    @OnException(retry = "every 5s during 10s", setStatus = PAYMENT_CANCELLED)
+    @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_CANCELLED)
     public void cancelPayment(Task task, Order order) {
         if (order.getPaymentTransactionId() != null) {
             Check check = new Check(order.getPaymentTransactionId());
@@ -117,7 +117,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(PAYMENT_CANCELLED)
-    @OnException(retry = "every 5s during 10s", setStatus = RESERVATION_CANCELLED)
+    @OnException(retry = "every 2m during 10m", setStatus = RESERVATION_CANCELLED)
     public void cancelReservation(Task task, Order order) {
         if (order.getReservationToken() != null) {
             Reservation reservation = new Reservation(order.getReservationToken());
