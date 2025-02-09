@@ -1,5 +1,7 @@
 package com.doertutorial;
 
+import jakarta.json.JsonObject;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -15,6 +17,7 @@ public class Order {
     private String reservationToken;
     private String paymentTransactionId;
     private String deliveryTrackingId;
+    private JsonObject failureDetails;
 
     public void assignFieldsFrom(Order other) {
         id = other.id;
@@ -28,6 +31,7 @@ public class Order {
         reservationToken = other.reservationToken;
         paymentTransactionId = other.paymentTransactionId;
         deliveryTrackingId = other.deliveryTrackingId;
+        failureDetails = other.failureDetails;
     }
 
     public UUID getId() {
@@ -116,6 +120,14 @@ public class Order {
 
     public void setDeliveryTrackingId(String deliveryTrackingId) {
         this.deliveryTrackingId = deliveryTrackingId;
+    }
+
+    public JsonObject getFailureDetails() {
+        return failureDetails;
+    }
+
+    public void setFailureDetails(JsonObject failureDetails) {
+        this.failureDetails = failureDetails;
     }
 }
 

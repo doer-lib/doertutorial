@@ -60,6 +60,10 @@
             <artifactId>quarkus-resteasy</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-mailer</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.github.doer-lib</groupId>
             <artifactId>doer</artifactId>
             <version>1.0.0-beta1</version>
