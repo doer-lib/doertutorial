@@ -14,6 +14,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static it.Testbed.makeTaskOlder;
 import static it.Testbed.startTestbed;
 import static it.Testbed.waitForConditionOrDeadline;
 import static org.hamcrest.Matchers.equalTo;
@@ -80,6 +81,13 @@ public class OrderProcessingITCase {
                 .statusCode(303)
                 .extract()
                 .header("Location");
+
+        long taskId = waitForConditionOrDeadline(
+                () -> RestAssured.get(location).then().extract().jsonPath(),
+                json -> json.getString("task.failingSince") != null && !json.getBoolean("task.inProgress"),
+                Instant.now().plusSeconds(5)
+        ).getLong("task.id");
+        makeTaskOlder(taskId, "10 min");
 
         waitForConditionOrDeadline(
                 () -> RestAssured.get(location).then(),
