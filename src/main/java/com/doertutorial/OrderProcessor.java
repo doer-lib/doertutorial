@@ -56,7 +56,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(ORDER_PROCESSING_STARTED)
-    @RetryPolicy(interval = "5s", duration = "5s", fallbackStatus = NO_GOODS)
+    @RetryPolicy(interval = "2m", duration = "10m", fallbackStatus = NO_GOODS)
     public void reserveGoods(Task task, Order order) {
         Reservation reservation = warehouse.reserveGoods(order);
         order.setReservationToken(reservation.token());
@@ -70,7 +70,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(GOODS_RESERVED)
-    @RetryPolicy(interval = "5s", duration = "10s", fallbackStatus = PAYMENT_FAILED)
+    @RetryPolicy(interval = "5m", duration = "30m", fallbackStatus = PAYMENT_FAILED)
     public void payOrder(Task task, Order order) {
         Check check = bank.processPayment(order);
         order.setPaymentTransactionId(check.transactionId());
@@ -84,7 +84,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(ORDER_PAID)
-    @RetryPolicy(interval = "5s", duration = "5s", fallbackStatus = ORDER_NOT_SHIPPED)
+    @RetryPolicy(interval = "2m", duration = "10m", fallbackStatus = ORDER_NOT_SHIPPED)
     public void shipOrder(Task task, Order order) {
         TrackId trackId = warehouse.shipTheOrder(order);
         order.setDeliveryTrackingId(trackId.token());
@@ -107,7 +107,7 @@ public class OrderProcessor {
     @AcceptStatus(REJECTED_NO_GOODS)
     @AcceptStatus(REJECTED_NO_PAYMENT)
     @AcceptStatus(REJECTED_NO_SHIPPING)
-    @RetryPolicy(interval = "5s", duration = "10s", fallbackStatus = PAYMENT_CANCELLED)
+    @RetryPolicy(interval = "5m", duration = "30m", fallbackStatus = PAYMENT_CANCELLED)
     public void cancelPayment(Task task, Order order) {
         if (order.getPaymentTransactionId() != null) {
             Check check = new Check(order.getPaymentTransactionId());
@@ -117,7 +117,7 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(PAYMENT_CANCELLED)
-    @RetryPolicy(interval = "5s", duration = "10s", fallbackStatus = RESERVATION_CANCELLED)
+    @RetryPolicy(interval = "2m", duration = "10m", fallbackStatus = RESERVATION_CANCELLED)
     public void cancelReservation(Task task, Order order) {
         if (order.getReservationToken() != null) {
             Reservation reservation = new Reservation(order.getReservationToken());
