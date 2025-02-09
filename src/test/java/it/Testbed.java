@@ -77,6 +77,8 @@ public class Testbed {
             env.put("QUARKUS_DATASOURCE_JDBC_URL", jdbcUrl);
             env.put("QUARKUS_DATASOURCE_USERNAME", "quarkus");
             env.put("QUARKUS_DATASOURCE_PASSWORD", "quarkus");
+            env.put("QUARKUS_MAILER_MOCK", "true");
+            env.put("ORDER_MANAGER_EMAIL", "integration-order-manager@test");
             app = builder.start();
             waitTextInFile(out, "Profile prod activated", Duration.ofMinutes(1));
             RestAssured.baseURI = "http://localhost";

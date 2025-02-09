@@ -59,6 +59,10 @@
             <artifactId>quarkus-resteasy</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-mailer</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.java-doer</groupId>
             <artifactId>doer</artifactId>
             <version>0.0.13</version>
