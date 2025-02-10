@@ -17,10 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderProcessorTest {
@@ -156,6 +153,13 @@ class OrderProcessorTest {
 
         assertEquals(OrderProcessor.PAYMENT_CANCELLED, task.getStatus());
         verifyNoInteractions(bank);
+    }
+
+    @Test
+    void notifyManager__should_log_bank_error() throws Exception {
+        orderProcessor.notifyManager(task, order);
+
+        assertEquals(OrderProcessor.MANAGER_NOTIFIED, task.getStatus());
     }
 
     @Test

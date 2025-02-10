@@ -98,6 +98,25 @@ public class OrderDao {
         updateOrder(order);
     }
 
+    public String loadLastFailureExtraJson(long taskId) throws SQLException {
+        String sql = """
+                SELECT *
+                FROM task_logs
+                WHERE exception_type IS NOT NULL
+                  AND task_id = ?
+                ORDER BY created DESC
+                LIMIT 1""";
+        try (Connection con = ds.getConnection(); PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setLong(1, taskId);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString("extra_json");
+                }
+            }
+        }
+        return null;
+    }
+
     private Order readOrder(ResultSet rs) throws SQLException {
         Order order = new Order();
         order.setId(rs.getObject("id", UUID.class));
