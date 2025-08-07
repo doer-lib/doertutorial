@@ -5,12 +5,21 @@ import com.doertutorial.Bank.Check;
 import com.doertutorial.Warehouse.Reservation;
 import com.doertutorial.Warehouse.TrackId;
 import io.quarkus.logging.Log;
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonWriter;
+import jakarta.json.stream.JsonGenerator;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
+import java.io.StringWriter;
 import java.sql.SQLException;
+import java.util.Map;
 
 @ApplicationScoped
 public class OrderProcessor {
@@ -26,6 +35,9 @@ public class OrderProcessor {
     public static final String ORDER_SHIPPED = "Order shipped";
     public static final String REJECTED_NO_SHIPPING = "Rejected No Shipping";
     public static final String PAYMENT_CANCELLED = "Payment cancelled";
+    public static final String PAYMENT_CANCELLATION_FAILED = "Payment cancellation failed";
+    public static final String FAILURE_DETAILS_UPDATED = "Failure details updated";
+    public static final String MANAGER_NOTIFIED = "Manager notified";
     public static final String RESERVATION_CANCELLED = "Reservation cancelled";
 
     @Inject
@@ -38,6 +50,10 @@ public class OrderProcessor {
     @Inject
     @RestClient
     Bank bank;
+    @Inject
+    Mailer mailer;
+    @ConfigProperty(name = "order.manager.email")
+    String orderManagerEmail;
 
     @Transactional
     public void saveNewOrder(Order order) throws SQLException {
@@ -107,7 +123,7 @@ public class OrderProcessor {
     @AcceptStatus(REJECTED_NO_GOODS)
     @AcceptStatus(REJECTED_NO_PAYMENT)
     @AcceptStatus(REJECTED_NO_SHIPPING)
-    @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_CANCELLED)
+    @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_CANCELLATION_FAILED)
     public void cancelPayment(Task task, Order order) {
         if (order.getPaymentTransactionId() != null) {
             Check check = new Check(order.getPaymentTransactionId());
@@ -116,6 +132,30 @@ public class OrderProcessor {
         task.setStatus(PAYMENT_CANCELLED);
     }
 
+    @AcceptStatus(PAYMENT_CANCELLATION_FAILED)
+    public void updateOrderFailureDetails(Task task, Order order) throws Exception {
+        JsonObject json = orderDao.loadLastFailureExtraJson(task.getId());
+        order.setFailureDetails(json);
+        task.setStatus(FAILURE_DETAILS_UPDATED);
+    }
+
+    @AcceptStatus(FAILURE_DETAILS_UPDATED)
+    @OnException(retry = "every 10s during 10s", setStatus = MANAGER_NOTIFIED)
+    public void notifyManager(Task task, Order order) throws Exception {
+        String subject = "Payment cancellation failed. Order: " + order.getId();
+        StringWriter body = new StringWriter();
+        body.write("Payment cancellation failed for order " + order.getId() + "\nDetails:\n");
+        if (order.getFailureDetails() != null) {
+            try (JsonWriter writer = Json.createWriterFactory(Map.of(JsonGenerator.PRETTY_PRINTING, true))
+                    .createWriter(body)) {
+                writer.writeObject(order.getFailureDetails());
+            }
+        }
+        mailer.send(Mail.withText(orderManagerEmail, subject, body.toString()));
+        task.setStatus(MANAGER_NOTIFIED);
+    }
+
+    @AcceptStatus(MANAGER_NOTIFIED)
     @AcceptStatus(PAYMENT_CANCELLED)
     @OnException(retry = "every 2m during 10m", setStatus = RESERVATION_CANCELLED)
     public void cancelReservation(Task task, Order order) {

@@ -101,6 +101,26 @@ public class OrderDao {
         updateOrder(order);
     }
 
+    public JsonObject loadLastFailureExtraJson(long taskId) throws SQLException {
+        String sql = """
+                SELECT *
+                FROM task_logs
+                WHERE exception_type IS NOT NULL
+                  AND task_id = ?
+                ORDER BY created DESC
+                LIMIT 1""";
+        try (Connection con = ds.getConnection(); PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setLong(1, taskId);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    String jsonString = rs.getString("extra_json");
+                    return jsonString == null ? null : Json.createReader(new StringReader(jsonString)).readObject();
+                }
+            }
+        }
+        return null;
+    }
+
     static Order readOrder(ResultSet rs) throws SQLException {
         Order order = new Order();
         order.setId(rs.getObject("id", UUID.class));
@@ -154,6 +174,9 @@ public class OrderDao {
         if (order.getDeliveryTrackingId() != null) {
             b.add("delivery_tracking_id", order.getDeliveryTrackingId());
         }
+        if (order.getFailureDetails() != null) {
+            b.add("failure_details", order.getFailureDetails());
+        }
         return b.build().toString();
     }
 
@@ -168,6 +191,7 @@ public class OrderDao {
         order.setReservationToken(json.getString("reservation_token", null));
         order.setPaymentTransactionId(json.getString("payment_transaction_id", null));
         order.setDeliveryTrackingId(json.getString("delivery_tracking_id", null));
+        order.setFailureDetails(json.getJsonObject("failure_details"));
     }
 }
 
