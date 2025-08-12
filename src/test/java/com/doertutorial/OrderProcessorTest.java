@@ -9,13 +9,17 @@ import com.doertutorial.Warehouse.TrackId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
+import java.time.Instant;
+
 import static com.doertutorial.OrderProcessor.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -93,14 +97,56 @@ class OrderProcessorTest {
     }
 
     @Test
-    void payOrder__should_store_transaction_id() {
-        when(bank.processPayment(order))
-                .thenReturn(new Check("test-transaction-id"));
+    void generatePaymentId__should_generate_payment_id() {
+        order.setPaymentTransactionId(null);
+
+        orderProcessor.generatePaymentId(task, order);
+
+        assertNotNull(order.getPaymentTransactionId());
+        assertEquals(PAYMENT_ID_GENERATED, task.getStatus());
+    }
+
+    @Test
+    void payOrder__should_store_payment_time() {
+        order.setPaymentTransactionId("test-transaction-id");
 
         orderProcessor.payOrder(task, order);
 
-        assertEquals("test-transaction-id", order.getPaymentTransactionId());
-        assertEquals(ORDER_PAID, task.getStatus());
+        verify(bank).processPaymentV2("test-transaction-id", order);
+        assertNotNull(order.getPaymentTime());
+        assertEquals(PAYMENT_INITIATED, task.getStatus());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "IN_PROGRESS, " + PAYMENT_INITIATED,
+            "FAILED, " + PAYMENT_REJECTED_BY_BANK,
+            "CANCELLED, " + PAYMENT_REJECTED_BY_BANK,
+            "SUCCESS, " + ORDER_PAID
+    })
+    void checkPaymentStatus__should_process_payment_status(Bank.PaymentStatus paymentStatus, String taskStatus) {
+        task.setStatus(PAYMENT_INITIATED);
+        order.setPaymentTime(Instant.now());
+        order.setPaymentTransactionId("test-id-777");
+        when(bank.checkPaymentStatus("test-id-777"))
+                .thenReturn(new Bank.Payment("test-id-777", paymentStatus));
+
+        orderProcessor.checkPaymentStatus(task, order);
+
+        assertEquals(taskStatus, task.getStatus());
+    }
+
+    @Test
+    void checkPaymentStatus__should_set_PAYMENT_TIMEOUT() {
+        Duration maxTimeToWait = Duration.ofMinutes(2).plusSeconds(1);
+        order.setPaymentTime(Instant.now().minus(maxTimeToWait));
+        order.setPaymentTransactionId("test-id-888");
+        when(bank.checkPaymentStatus("test-id-888"))
+                .thenReturn(new Bank.Payment("test-id-888", Bank.PaymentStatus.IN_PROGRESS));
+
+        orderProcessor.checkPaymentStatus(task, order);
+
+        assertEquals(PAYMENT_TIMEOUT, task.getStatus());
     }
 
     @Test

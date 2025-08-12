@@ -154,6 +154,9 @@ public class OrderDao {
         if (order.getDeliveryTrackingId() != null) {
             b.add("delivery_tracking_id", order.getDeliveryTrackingId());
         }
+        if (order.getPaymentTime() != null) {
+            b.add("payment_time", order.getPaymentTime().toString());
+        }
         return b.build().toString();
     }
 
@@ -168,6 +171,11 @@ public class OrderDao {
         order.setReservationToken(json.getString("reservation_token", null));
         order.setPaymentTransactionId(json.getString("payment_transaction_id", null));
         order.setDeliveryTrackingId(json.getString("delivery_tracking_id", null));
+        if (json.containsKey("payment_time")) {
+            order.setPaymentTime(Instant.parse(json.getString("payment_time")));
+        } else {
+            order.setPaymentTime(null);
+        }
     }
 }
 
