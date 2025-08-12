@@ -6,13 +6,61 @@
         "url": "/bank/processPayment"
       },
       "response": {
-        "status": 200,
+        "status": 400,
         "jsonBody": {
-          "transactionId": "mocked-transactionId"
+          "error": "This API not available any more"
         },
         "headers": {
           "Content-Type": "application/json"
         }
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "urlPath": "/bank/processPaymentV2",
+        "queryParameters": {
+          "id": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 202,
+        "jsonBody": {
+          "transactionId": "{{request.query.id}}",
+          "status": "IN_PROGRESS"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "transformers": [
+          "response-template"
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "urlPath": "/bank/paymentStatusV2",
+        "queryParameters": {
+          "id": {
+            "matches": ".*"
+          }
+        }
+      },
+      "response": {
+        "status": 200,
+        "jsonBody": {
+          "transactionId": "{{request.query.id}}",
+          "status": "SUCCESS"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "transformers": [
+          "response-template"
+        ]
       }
     },
     {
