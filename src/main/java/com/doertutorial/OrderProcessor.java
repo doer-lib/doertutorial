@@ -11,6 +11,9 @@ import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
 
 @ApplicationScoped
 public class OrderProcessor {
@@ -20,6 +23,10 @@ public class OrderProcessor {
     public static final String NO_GOODS = "No Goods";
     public static final String REJECTED_NO_GOODS = "Rejected No Goods";
     public static final String PAYMENT_FAILED = "Payment failed";
+    public static final String PAYMENT_ID_GENERATED = "Payment-Id generated";
+    public static final String PAYMENT_INITIATED = "Payment Initiated";
+    public static final String PAYMENT_REJECTED_BY_BANK = "Payment rejected by bank";
+    public static final String PAYMENT_TIMEOUT = "Payment timeout";
     public static final String ORDER_PAID = "Order paid";
     public static final String REJECTED_NO_PAYMENT = "Rejected No Payment";
     public static final String ORDER_NOT_SHIPPED = "Order Not shipped";
@@ -70,14 +77,42 @@ public class OrderProcessor {
     }
 
     @AcceptStatus(GOODS_RESERVED)
+    public void generatePaymentId(Task task, Order order) {
+        order.setPaymentTransactionId(UUID.randomUUID().toString());
+        task.setStatus(PAYMENT_ID_GENERATED);
+    }
+
+    @AcceptStatus(PAYMENT_ID_GENERATED)
     @OnException(retry = "every 5m during 30m", setStatus = PAYMENT_FAILED)
     public void payOrder(Task task, Order order) {
-        Check check = bank.processPayment(order);
-        order.setPaymentTransactionId(check.transactionId());
-        task.setStatus(ORDER_PAID);
+        bank.processPaymentV2(order.getPaymentTransactionId(), order);
+        order.setPaymentTime(Instant.now());
+        task.setStatus(PAYMENT_INITIATED);
+    }
+
+    @AcceptStatus(value = PAYMENT_INITIATED, delay = "5s")
+    @OnException(retry = "every 5m during 10m", setStatus = PAYMENT_FAILED)
+    public void checkPaymentStatus(Task task, Order order) {
+        var payment = bank.checkPaymentStatus(order.getPaymentTransactionId());
+        if (payment.status() == Bank.PaymentStatus.SUCCESS) {
+            task.setStatus(ORDER_PAID);
+        } else if (payment.status() == Bank.PaymentStatus.FAILED || payment.status() == Bank.PaymentStatus.CANCELLED) {
+            Log.warnf("Payment failed %s", payment);
+            task.setStatus(PAYMENT_REJECTED_BY_BANK);
+        } else {
+            var deadline = order.getPaymentTime()
+                    .plus(Duration.ofMinutes(2));
+            if (Instant.now().isAfter(deadline)) {
+                Log.warnf("Payment timeout. Order: %s, Payment: %s",
+                        order.getId(), payment);
+                task.setStatus(PAYMENT_TIMEOUT);
+            }
+        }
     }
 
     @AcceptStatus(PAYMENT_FAILED)
+    @AcceptStatus(PAYMENT_REJECTED_BY_BANK)
+    @AcceptStatus(PAYMENT_TIMEOUT)
     public void reportNoPaymentForOrder(Task task, Order order) {
         order.setRejectReason("Payment not processed.");
         task.setStatus(REJECTED_NO_PAYMENT);
