@@ -15,6 +15,7 @@ public class Order {
     private String reservationToken;
     private String paymentTransactionId;
     private String deliveryTrackingId;
+    private Instant paymentTime;
 
     public void assignFieldsFrom(Order other) {
         id = other.id;
@@ -28,6 +29,7 @@ public class Order {
         reservationToken = other.reservationToken;
         paymentTransactionId = other.paymentTransactionId;
         deliveryTrackingId = other.deliveryTrackingId;
+        paymentTime = other.paymentTime;
     }
 
     public UUID getId() {
@@ -116,6 +118,14 @@ public class Order {
 
     public void setDeliveryTrackingId(String deliveryTrackingId) {
         this.deliveryTrackingId = deliveryTrackingId;
+    }
+
+    public Instant getPaymentTime() {
+        return paymentTime;
+    }
+
+    public void setPaymentTime(Instant paymentTime) {
+        this.paymentTime = paymentTime;
     }
 }
 

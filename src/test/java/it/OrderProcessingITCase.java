@@ -1,5 +1,6 @@
 package it;
 
+import com.doertutorial.OrderProcessor;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import io.restassured.RestAssured;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,11 +39,20 @@ public class OrderProcessingITCase {
                 .extract()
                 .header("Location");
 
-        RestAssured.get(location)
+        long taskId = RestAssured.get(location)
                 .then()
                 .statusCode(200)
                 .body("order.customer", equalTo("Alice"))
-                .body("order.items", equalTo("a pen"));
+                .body("order.items", equalTo("a pen"))
+                .extract()
+                .jsonPath()
+                .getLong("task.id");
+
+        waitForConditionOrDeadline(() -> RestAssured.get(location).then().extract().jsonPath(),
+                json -> OrderProcessor.PAYMENT_INITIATED.equals(json.getString("task.status")) && !json.getBoolean("task.inProgress"),
+                Instant.now().plusSeconds(5));
+
+        makeTaskOlder(taskId, "5 sec");
 
         waitForConditionOrDeadline(
                 () -> RestAssured.get(location).then(),
@@ -55,7 +65,7 @@ public class OrderProcessingITCase {
 
         verify(postRequestedFor(urlPathMatching("/warehouse/reserve"))
                 .withRequestBody(matchingJsonPath("items", WireMock.equalTo("a pen"))));
-        verify(postRequestedFor(urlPathMatching("/bank/processPayment"))
+        verify(postRequestedFor(urlPathMatching("/bank/processPaymentV2"))
                 .withRequestBody(matchingJsonPath("customer", WireMock.equalTo("Alice"))));
         verify(postRequestedFor(urlPathMatching("/warehouse/ship"))
                 .withRequestBody(matchingJsonPath("customer", WireMock.equalTo("Alice")))
@@ -80,11 +90,24 @@ public class OrderProcessingITCase {
                 .extract()
                 .header("Location");
 
-        long taskId = waitForConditionOrDeadline(
+        long taskId = RestAssured.get(location)
+                .then()
+                .extract()
+                .jsonPath()
+                .getLong("task.id");
+
+        String paymentId = waitForConditionOrDeadline(() -> RestAssured.get(location).then().extract().jsonPath(),
+                json -> OrderProcessor.PAYMENT_INITIATED.equals(json.getString("task.status")) && !json.getBoolean("task.inProgress"),
+                Instant.now().plusSeconds(5))
+                .getString("order.paymentTransactionId");
+
+        makeTaskOlder(taskId, "5 sec");
+
+        waitForConditionOrDeadline(
                 () -> RestAssured.get(location).then().extract().jsonPath(),
                 json -> json.getString("task.failingSince") != null && !json.getBoolean("task.inProgress"),
                 Instant.now().plusSeconds(5)
-        ).getLong("task.id");
+        );
 
         makeTaskOlder(taskId, "10 min");
 
@@ -101,6 +124,6 @@ public class OrderProcessingITCase {
         verify(postRequestedFor(urlPathMatching("/warehouse/cancel"))
                 .withRequestBody(matchingJsonPath("token", WireMock.equalTo("mocked-token"))));
         verify(postRequestedFor(urlPathMatching("/bank/cancelPayment"))
-                .withRequestBody(matchingJsonPath("transactionId", WireMock.equalTo("mocked-transactionId"))));
+                .withRequestBody(matchingJsonPath("transactionId", WireMock.equalTo(paymentId))));
     }
 }
