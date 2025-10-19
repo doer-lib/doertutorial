@@ -9,11 +9,6 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @Produces(MediaType.APPLICATION_JSON)
 public interface Bank {
     @POST
-    @Path("bank/processPayment")
-    @Deprecated
-    Check processPayment(Order order);
-
-    @POST
     @Path("bank/processPaymentV2")
     Payment processPaymentV2(@QueryParam("id") String transactionId, Order order);
 

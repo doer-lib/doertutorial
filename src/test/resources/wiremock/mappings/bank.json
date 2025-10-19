@@ -3,21 +3,6 @@
     {
       "request": {
         "method": "POST",
-        "url": "/bank/processPayment"
-      },
-      "response": {
-        "status": 400,
-        "jsonBody": {
-          "error": "This API not available any more"
-        },
-        "headers": {
-          "Content-Type": "application/json"
-        }
-      }
-    },
-    {
-      "request": {
-        "method": "POST",
         "urlPath": "/bank/processPaymentV2",
         "queryParameters": {
           "id": {
