@@ -6,22 +6,26 @@ import com.doer.Task;
 import com.doertutorial.Bank.Check;
 import com.doertutorial.Warehouse.Reservation;
 import com.doertutorial.Warehouse.TrackId;
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
+import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+import java.util.UUID;
+
 import static com.doertutorial.OrderProcessor.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class OrderProcessorTest {
@@ -34,6 +38,8 @@ class OrderProcessorTest {
     Warehouse warehouse;
     @Mock
     Bank bank;
+    @Mock
+    Mailer mailer;
 
     @InjectMocks
     OrderProcessor orderProcessor;
@@ -47,6 +53,8 @@ class OrderProcessorTest {
         DoerAccessor.assignTaskId(task, 17L);
         task.setStatus("Test status");
         order = new Order();
+        order.setId(UUID.fromString("0a9a5547-9c2a-4521-8a42-eaba68f91189"));
+        orderProcessor.orderManagerEmail = "test_manager_mail";
     }
 
     @Test
@@ -157,6 +165,46 @@ class OrderProcessorTest {
 
         assertEquals(PAYMENT_CANCELLED, task.getStatus());
         verifyNoInteractions(bank);
+    }
+
+    @Test
+    void updateOrderFailureDetails__should_set_order_failure_details() throws Exception {
+        JsonObject extraJson = Json.createObjectBuilder()
+                .add("test", "test")
+                .build();
+        when(orderDao.loadLastFailureExtraJson(anyLong()))
+                .thenReturn(extraJson);
+
+        orderProcessor.updateOrderFailureDetails(task, order);
+
+        assertEquals(extraJson, order.getFailureDetails());
+        assertEquals(FAILURE_DETAILS_UPDATED, task.getStatus());
+    }
+
+    @Test
+    void notifyManager__should_send_email() throws Exception {
+        JsonObject failure = Json.createObjectBuilder().add("test-key", "test-value").build();
+        order.setFailureDetails(failure);
+
+        orderProcessor.notifyManager(task, order);
+
+        assertEquals(OrderProcessor.MANAGER_NOTIFIED, task.getStatus());
+        ArgumentCaptor<Mail> mailCaptor = ArgumentCaptor.forClass(Mail.class);
+        verify(mailer).send(mailCaptor.capture());
+        Mail mail = mailCaptor.getValue();
+        assertEquals(List.of("test_manager_mail"), mail.getTo());
+        assertEquals("Payment cancellation failed. Order: 0a9a5547-9c2a-4521-8a42-eaba68f91189", mail.getSubject());
+        assertTrue(mail.getText().contains("test-value"));
+    }
+
+    @Test
+    void notifyManager__should_send_email_when_failure_not_known() throws Exception {
+        order.setFailureDetails(null);
+
+        orderProcessor.notifyManager(task, order);
+
+        assertEquals(OrderProcessor.MANAGER_NOTIFIED, task.getStatus());
+        verify(mailer).send(any());
     }
 
     @Test
